@@ -21,43 +21,73 @@ router.get("/", (req, res) => {
   // be sure to include its associated Product data
 });
 
-router.get("/:id", (req, res) => {
-  Tag.findOne({
-    where: {
-      id: req.params.id,
-    },
-    include: [
-      {
-        model: Product,
-        attributes: ["id", "product_name", "price", "stock", "category_id"],
+router.get("/:id", async (req, res) => {
+  try {
+    let tag = await Tag.findOne({
+      where: {
+        id: req.params.id,
       },
-    ],
-  })
-    .then((dbTagData) => {
-      if (!dbTagData) {
-        //server could not find the requested website with id value => 404 error
-        //status code is used to communicate if it's really the server's fault or the client fault
-        res.status(404).json({ message: "Tag ID does not exist" });
-      }
-    })
-    .catch((err) => {
-      console.log(err);
-      res.status(500).json(err);
+      include: [
+        {
+          model: Product,
+          attributes: ["id", "product_name", "price", "stock", "category_id"],
+        },
+      ],
     });
-  // find a single tag by its `id`
-  // be sure to include its associated Product data
+
+    if (!tag) return res.status(404).json({ message: "tag not found" });
+    return res.status(200).json(tag);
+  } catch (err) {
+    console.log(err);
+    res.status(500).json({ message: err.message });
+  }
 });
 
-router.post("/", (req, res) => {
-  // create a new tag
+router.post("/", async (req, res) => {
+  try {
+    let tag = await Tag.create(req.body);
+    return res.status(201).json(tag);
+  } catch (err) {
+    console.log(err);
+    return res.status(500).json({ message: err.message });
+  }
 });
 
-router.put("/:id", (req, res) => {
-  // update a tag's name by its `id` value
+// create a new tag
+router.put("/:id", async (req, res) => {
+  try {
+    let tag = await Tag.findByPk(req.params.id);
+    let updatedTag = await tag.update(req.body);
+    if (!updatedTag)
+      return res.status(404).json({
+        message: "cannot upate tag that doesn't exist",
+      });
+    return res.status(200).json({
+      tag: updatedTag,
+    });
+  } catch (err) {
+    console.log(err);
+    let { message } = err;
+    return res.status(500).json({ message });
+  }
 });
-
-router.delete("/:id", (req, res) => {
-  // delete on tag by its `id` value
+// update a tag's name by its `id` value
+router.delete("/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    await ProductTag.destroy({ where: { tag_id: id } });
+    let deletedTag = await Tag.destroy({ where: { id } });
+    if (!deletedTag)
+      return res
+        .status(404)
+        .json({ message: "cannot delete tag that doesn't exist" });
+    return res.status(200).json({
+      message: "tag deleted",
+    });
+  } catch (err) {
+    console.log(err);
+    return res.status(500).json({ err: err.message });
+  }
 });
-
+// delete on tag by its `id` value
 module.exports = router;
